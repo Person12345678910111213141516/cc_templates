@@ -1,8 +1,8 @@
 # sprites.py (Player class)
 import pygame
 from .settings import (
-    PLAYER_COLOR, MOVE_SPEED, GRAVITY, JUMP_VEL, TILE_SIZE,
-    COYOTE_TIME, JUMP_BUFFER_TIME
+    PLAYER_COLOR, MOVE_SPEED, GRAVITY, JUMP_VEL, DASH_VEL, TILE_SIZE,
+    COYOTE_TIME, JUMP_BUFFER_TIME, DASH_BUFFER_TIME
 )
 from .anim import AnimSprite
 from .assets import SpriteSheet, get_default_paths
@@ -22,9 +22,11 @@ class Player(pygame.sprite.Sprite):
         self.vel = pygame.Vector2(0, 0)
         self.on_ground = False
 
+        self.direction = "right"
         # jump helpers
         self.coyote_timer = 0.0
         self.jump_buffer_timer = 0.0
+        self.dash_buffer_timer = 0.0
         self.jumps = 0
 
         # visuals
@@ -50,8 +52,10 @@ class Player(pygame.sprite.Sprite):
         self.vel.x = 0
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             self.vel.x = -MOVE_SPEED
+            self.direction = "left"
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.vel.x = MOVE_SPEED
+            self.direction = "right"
 
     def queue_jump(self):
         """Record a jump press; will fire when allowed (buffered)."""
@@ -97,6 +101,16 @@ class Player(pygame.sprite.Sprite):
         if self.on_ground:
             self.coyote_timer = COYOTE_TIME
 
+    def queue_dash(self):
+        self.dash_buffer_timer = DASH_BUFFER_TIME
+    
+    def _do_dash(self):
+        if self.direction == "right":
+            self.pos.x += DASH_VEL
+        else:
+            self.pos.x -= DASH_VEL
+        self.dash_buffer_timer = 0.0
+
     # ---------- main update ----------
     def update(self, keys, solids, dt):
         # tick timers
@@ -104,6 +118,8 @@ class Player(pygame.sprite.Sprite):
             self.coyote_timer -= dt
         if self.jump_buffer_timer > 0:
             self.jump_buffer_timer -= dt
+        if self.dash_buffer_timer > 0:
+            self.dash_buffer_timer -= dt
 
         self.handle_input(keys)
         self.apply_gravity()
@@ -113,6 +129,9 @@ class Player(pygame.sprite.Sprite):
         if (self.jump_buffer_timer > 0) and (self.on_ground or self.coyote_timer > 0 or self.jumps < 2):
             self._do_jump()
             self.jumps += 1
+
+        if (self.dash_buffer_timer > 0):
+            self._do_dash()
 
         # visuals
         if self.visual:

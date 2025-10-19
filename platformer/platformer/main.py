@@ -124,7 +124,6 @@ def compute_camera_offset_zoomaware(
 
 
 def main():
-    dev = False
     camera_zoom = 1.0
     ZOOM_STEP = 0.9
     MIN_ZOOM = 0.4
@@ -151,10 +150,12 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_q:
-                    dev = True
+                if event.key == pygame.K_ESCAPE:
+                    running = False
                 elif event.key in (pygame.K_SPACE, pygame.K_w, pygame.K_UP):
                     player.queue_jump()
+                elif event.key in (pygame.K_s, pygame.K_DOWN):
+                    player.queue_dash()
                 elif event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
                     camera_zoom = max(MIN_ZOOM, camera_zoom * ZOOM_STEP)
                 elif event.key in (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS):
@@ -218,15 +219,14 @@ def main():
             font.render("Arrows/A-D move, Space/W/Up jump", True, WHITE), (12, 10)
             
         )
-        if dev:
-            screen.blit(
-                font.render(
-                    f"Zoom: {camera_zoom:.2f}  EdgePad: {EDGE_PAD}, Zoom: {camera_zoom:.2f}",
-                    True,
-                    WHITE,
-                ),
-                (12, 34),
-            )
+        screen.blit(
+            font.render(
+                f"Zoom: {camera_zoom:.2f}  EdgePad: {EDGE_PAD}, Zoom: {camera_zoom:.2f}",
+                True,
+                WHITE,
+            ),
+            (12, 34),
+        )
 
         pygame.display.flip()
 

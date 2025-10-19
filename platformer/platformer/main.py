@@ -9,7 +9,6 @@ from platformer.sprites import Player
 
 TILE_SIZE = 48
 
-
 def compute_camera_offset(player_rect, level_size, screen_size, margin=200):
     """
     A simple camera that follows the player but clamps to level bounds.
@@ -125,6 +124,7 @@ def compute_camera_offset_zoomaware(
 
 
 def main():
+    dev = False
     camera_zoom = 1.0
     ZOOM_STEP = 0.9
     MIN_ZOOM = 0.4
@@ -151,7 +151,9 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_SPACE, pygame.K_w, pygame.K_UP):
+                if event.key == pygame.K_q:
+                    dev = True
+                elif event.key in (pygame.K_SPACE, pygame.K_w, pygame.K_UP):
                     player.queue_jump()
                 elif event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
                     camera_zoom = max(MIN_ZOOM, camera_zoom * ZOOM_STEP)
@@ -214,15 +216,17 @@ def main():
         font = pygame.font.SysFont(None, 24)
         screen.blit(
             font.render("Arrows/A-D move, Space/W/Up jump", True, WHITE), (12, 10)
+            
         )
-        screen.blit(
-            font.render(
-                f"Zoom: {camera_zoom:.2f}  EdgePad: {EDGE_PAD}, Zoom: {camera_zoom:.2f}",
-                True,
-                WHITE,
-            ),
-            (12, 34),
-        )
+        if dev:
+            screen.blit(
+                font.render(
+                    f"Zoom: {camera_zoom:.2f}  EdgePad: {EDGE_PAD}, Zoom: {camera_zoom:.2f}",
+                    True,
+                    WHITE,
+                ),
+                (12, 34),
+            )
 
         pygame.display.flip()
 

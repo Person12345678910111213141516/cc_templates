@@ -25,6 +25,7 @@ class Player(pygame.sprite.Sprite):
         # jump helpers
         self.coyote_timer = 0.0
         self.jump_buffer_timer = 0.0
+        self.jumps = 0
 
         # visuals
         self.visual = None
@@ -87,6 +88,7 @@ class Player(pygame.sprite.Sprite):
                 self.rect.bottom = r.top
                 self.on_ground = True
                 self.vel.y = 0
+                self.jumps = 0
             elif self.vel.y < 0:
                 self.rect.top = r.bottom
                 self.vel.y = 0
@@ -108,8 +110,9 @@ class Player(pygame.sprite.Sprite):
         self.move_and_collide(solids)
 
         # consume buffered jump if allowed
-        if (self.jump_buffer_timer > 0) and (self.on_ground or self.coyote_timer > 0):
+        if (self.jump_buffer_timer > 0) and (self.on_ground or self.coyote_timer > 0 or self.jumps < 2):
             self._do_jump()
+            self.jumps += 1
 
         # visuals
         if self.visual:
@@ -119,6 +122,7 @@ class Player(pygame.sprite.Sprite):
                 state = "run"
             else:
                 state = "idle"
-            self.visual.set(state)
+            if not state == "fall":
+                self.visual.set(state)
             self.visual.rect.topleft = self.rect.topleft
             self.visual.update(dt, flip=(self.vel.x < 0))

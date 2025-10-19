@@ -48,7 +48,7 @@ C = {
     "outline": (20, 60, 80, 255),
     "visor": (255, 255, 255, 255),   # visor
     "accent": (255, 90, 150, 255),   # fins
-    "thruster": (255, 200, 50, 255), # flame
+    "thruster": (255, 20, 50, 255), # flame <- edit this
     "shadow": (0, 0, 0, 60),
     "saber": (120, 255, 140, 255)
 }
@@ -117,7 +117,7 @@ def _draw_bytebuddy(draw: ImageDraw.ImageDraw, box, phase=0.0, action="idle"):
             draw.polygon([
                 (cx + dx - 3, flame_y),
                 (cx + dx + 3, flame_y),
-                (cx + dx, flame_y + 8 + (2 if action == "fall" else 0))
+                (cx + dx, flame_y + 8 + (2 if action == "fall" else 0)) #but also not on the ground
             ], fill=C["thruster"])
 
     # Attack swipe

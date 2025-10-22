@@ -8,8 +8,9 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "pygame>=2.6.1"
-    "ubelt>=1.4.0"
+    "pygame>=2.6.1",
+    "ubelt>=1.4.0",
+    "pillow>=11.3.0",
 ]
 
 [project.scripts]

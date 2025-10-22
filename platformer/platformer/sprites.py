@@ -106,8 +106,8 @@ class Player(pygame.sprite.Sprite):
     
     def _do_dash(self, solids):
         if self.direction == "right":
-            self.vel.x = 50
-            self.pos.x += 50
+            self.vel.x = DASH_VEL
+            self.pos.x += DASH_VEL
             self.rect.x = int(self.pos.x)
             hits = [r for r in solids if self.rect.colliderect(r)]
             for r in hits:
@@ -117,8 +117,8 @@ class Player(pygame.sprite.Sprite):
                     self.rect.left = r.right
                 self.pos.x = self.rect.x
         else:
-            self.vel.x = -50
-            self.pos.x -= 50
+            self.vel.x = -DASH_VEL
+            self.pos.x -= DASH_VEL
             self.rect.x = int(self.pos.x)
             hits = [r for r in solids if self.rect.colliderect(r)]
             for r in hits:
@@ -148,7 +148,7 @@ class Player(pygame.sprite.Sprite):
             self._do_jump()
             self.jumps += 1
 
-        if (self.dash_buffer_timer > 0):
+        if (self.dash_buffer_timer < 0):
             self._do_dash(solids)
 
         # visuals

@@ -216,7 +216,7 @@ def main():
         # HUD
         font = pygame.font.SysFont(None, 24)
         screen.blit(
-            font.render("Arrows/A-D move, Space/W/Up jump", True, WHITE), (12, 10)
+            font.render("Arrows/A-D move, Space/W/Up jump, S/Down dash", True, WHITE), (12, 10)
             
         )
         screen.blit(

@@ -104,11 +104,29 @@ class Player(pygame.sprite.Sprite):
     def queue_dash(self):
         self.dash_buffer_timer = DASH_BUFFER_TIME
     
-    def _do_dash(self):
+    def _do_dash(self, solids):
         if self.direction == "right":
-            self.pos.x += DASH_VEL
+            self.vel.x = 50
+            self.pos.x += 50
+            self.rect.x = int(self.pos.x)
+            hits = [r for r in solids if self.rect.colliderect(r)]
+            for r in hits:
+                if self.vel.x > 0:
+                    self.rect.right = r.left
+                elif self.vel.x < 0:
+                    self.rect.left = r.right
+                self.pos.x = self.rect.x
         else:
-            self.pos.x -= DASH_VEL
+            self.vel.x = -50
+            self.pos.x -= 50
+            self.rect.x = int(self.pos.x)
+            hits = [r for r in solids if self.rect.colliderect(r)]
+            for r in hits:
+                if self.vel.x > 0:
+                    self.rect.right = r.left
+                elif self.vel.x < 0:
+                    self.rect.left = r.right
+                self.pos.x = self.rect.x
         self.dash_buffer_timer = 0.0
 
     # ---------- main update ----------
@@ -131,7 +149,7 @@ class Player(pygame.sprite.Sprite):
             self.jumps += 1
 
         if (self.dash_buffer_timer > 0):
-            self._do_dash()
+            self._do_dash(solids)
 
         # visuals
         if self.visual:

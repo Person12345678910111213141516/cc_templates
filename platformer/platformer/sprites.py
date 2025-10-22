@@ -6,6 +6,7 @@ from .settings import (
 )
 from .anim import AnimSprite
 from .assets import SpriteSheet, get_default_paths
+from platformer.settings import WHITE, BLACK
 
 # flip to False to use colored rectangles
 # USE_SPRITES = False
@@ -28,6 +29,12 @@ class Player(pygame.sprite.Sprite):
         self.jump_buffer_timer = 0.0
         self.dash_buffer_timer = 0.0
         self.jumps = 0
+        self.acceleration = 0
+        self.properties = vars(self)
+        self.left_button = WHITE
+        self.right_button = WHITE
+        self.jump_button = WHITE
+        self.dash_button = WHITE
 
         # visuals
         self.visual = None
@@ -53,15 +60,23 @@ class Player(pygame.sprite.Sprite):
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             self.vel.x = -MOVE_SPEED
             self.direction = "left"
+            self.left_button = BLACK
+        else:
+            self.left_button = WHITE
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.vel.x = MOVE_SPEED
             self.direction = "right"
+            self.right_button = BLACK
+        else:
+            self.right_button = WHITE
+        
 
     def queue_jump(self):
         """Record a jump press; will fire when allowed (buffered)."""
         self.jump_buffer_timer = JUMP_BUFFER_TIME
 
     def _do_jump(self):
+        self.jump_button = BLACK
         self.vel.y = JUMP_VEL
         self.on_ground = False
         self.coyote_timer = 0.0
@@ -103,30 +118,13 @@ class Player(pygame.sprite.Sprite):
 
     def queue_dash(self):
         self.dash_buffer_timer = DASH_BUFFER_TIME
-    
-    def _do_dash(self, solids):
+
+    def _do_dash(self):
+        self.dash_button = BLACK
         if self.direction == "right":
-            self.vel.x = DASH_VEL
-            self.pos.x += DASH_VEL
-            self.rect.x = int(self.pos.x)
-            hits = [r for r in solids if self.rect.colliderect(r)]
-            for r in hits:
-                if self.vel.x > 0:
-                    self.rect.right = r.left
-                elif self.vel.x < 0:
-                    self.rect.left = r.right
-                self.pos.x = self.rect.x
+            self.acceleration = DASH_VEL
         else:
-            self.vel.x = -DASH_VEL
-            self.pos.x -= DASH_VEL
-            self.rect.x = int(self.pos.x)
-            hits = [r for r in solids if self.rect.colliderect(r)]
-            for r in hits:
-                if self.vel.x > 0:
-                    self.rect.right = r.left
-                elif self.vel.x < 0:
-                    self.rect.left = r.right
-                self.pos.x = self.rect.x
+            self.acceleration = -DASH_VEL
         self.dash_buffer_timer = 0.0
 
     # ---------- main update ----------
@@ -141,15 +139,28 @@ class Player(pygame.sprite.Sprite):
 
         self.handle_input(keys)
         self.apply_gravity()
+
+        self.dash_button = WHITE
+        # increase velocity by acceleration
+        self.vel.x += self.acceleration
+
         self.move_and_collide(solids)
+
+        if self.acceleration < 0:
+            self.acceleration += 5
+        if self.acceleration > 0:
+            self.acceleration -= 5
 
         # consume buffered jump if allowed
         if (self.jump_buffer_timer > 0) and (self.on_ground or self.coyote_timer > 0 or self.jumps < 2):
             self._do_jump()
             self.jumps += 1
+        else:
+            self.jump_button = WHITE
 
+        # perform a dash if allowed
         if (self.dash_buffer_timer < 0):
-            self._do_dash(solids)
+            self._do_dash()
 
         # visuals
         if self.visual:
@@ -163,3 +174,5 @@ class Player(pygame.sprite.Sprite):
                 self.visual.set(state)
             self.visual.rect.topleft = self.rect.topleft
             self.visual.update(dt, flip=(self.vel.x < 0))
+        # get debug info
+        self.properties = vars(self)

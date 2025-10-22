@@ -1,4 +1,3 @@
-# settings.py
 import pygame
 
 # Window
@@ -9,7 +8,7 @@ TITLE = "Pygame Platformer Starter"
 # Physics
 GRAVITY = 0.5  # pixels/frame^2
 JUMP_VEL = -12  # initial jump velocity
-DASH_VEL = 75
+DASH_VEL = 50
 MOVE_SPEED = 5  # horizontal speed
 
 COYOTE_TIME = 0.12        # seconds after leaving ground where jump still works

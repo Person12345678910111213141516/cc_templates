@@ -2,7 +2,7 @@
 import sys
 import pygame
 from platformer.settings import WIDTH, HEIGHT, FPS, TITLE, SKY, GROUND
-from platformer.settings import WHITE
+from platformer.settings import WHITE, BLACK
 from platformer.level import Level
 from platformer.sprites import Player
 
@@ -125,6 +125,9 @@ def compute_camera_offset_zoomaware(
 
 def main():
     camera_zoom = 1.0
+    dev = False
+    jump_button = WHITE
+    dash_button = WHITE
     ZOOM_STEP = 0.9
     MIN_ZOOM = 0.4
     MAX_ZOOM = 3.0
@@ -152,14 +155,24 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     running = False
+                elif event.key == pygame.K_p:
+                    if dev:
+                        dev = False
+                    else:
+                        dev = True
                 elif event.key in (pygame.K_SPACE, pygame.K_w, pygame.K_UP):
                     player.queue_jump()
+                    jump_button = BLACK
                 elif event.key in (pygame.K_s, pygame.K_DOWN):
                     player.queue_dash()
+                    dash_button = BLACK
                 elif event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
                     camera_zoom = max(MIN_ZOOM, camera_zoom * ZOOM_STEP)
                 elif event.key in (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS):
                     camera_zoom = min(MAX_ZOOM, camera_zoom / ZOOM_STEP)
+            else:
+                jump_button = WHITE
+                dash_button = WHITE
 
         keys = pygame.key.get_pressed()
         player.update(keys, level.solids, dt)
@@ -216,17 +229,30 @@ def main():
         # HUD
         font = pygame.font.SysFont(None, 24)
         screen.blit(
-            font.render("Arrows/A-D move, Space/W/Up jump, S/Down dash", True, WHITE), (12, 10)
-            
+            font.render("Arrows/A-D move, Space/W/Up jump, S/Down dash", True, WHITE), (12, 10)  
         )
-        screen.blit(
-            font.render(
-                f"Zoom: {camera_zoom:.2f}  EdgePad: {EDGE_PAD}, Zoom: {camera_zoom:.2f}",
-                True,
-                WHITE,
-            ),
-            (12, 34),
-        )
+        # screen.blit(
+        #     font.render(f"Zoom: {camera_zoom:.2f}  EdgePad: {EDGE_PAD}, Zoom: {camera_zoom:.2f}", True, WHITE),(12, 34),
+        # )
+        if dev:
+            screen.blit(
+                font.render(f"{player.properties}", True, WHITE),(12, 34),
+            )
+            screen.blit(
+                font.render(f"           [ W ]", True, jump_button),(12, 60),
+            )
+            screen.blit(
+                font.render(f"[ A ]", True, player.left_button),(12, 110),
+            )
+            screen.blit(
+                font.render(f"[ S ]", True, dash_button),(58, 110),
+            )
+            screen.blit(
+                font.render(f"[ D ]", True, player.right_button),(102, 110),
+            )
+            screen.blit(
+                font.render(f"[ ____________ ]", True, jump_button),(12, 160),
+            )
 
         pygame.display.flip()
 

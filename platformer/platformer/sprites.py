@@ -40,14 +40,16 @@ class Player(pygame.sprite.Sprite):
         self.visual = None
         if USE_SPRITES:
             paths = get_default_paths()
+            # paths['sheet'] = '/home/joncrall/code/binary_content/spritesheets/assets-v001.png'
+            # paths['meta'] = '/home/joncrall/code/cc_templates/platformer/assets-v001_metadata.json'
             sheet = SpriteSheet(paths["sheet"], paths["meta"])
             anims = {
-                "idle":   sheet.anim_surfs("idle"),
-                "run":    sheet.anim_surfs("run"),
-                "jump":   sheet.anim_surfs("jump"),
-                "fall":   sheet.anim_surfs("fall"),
-                "attack": sheet.anim_surfs("attack"),
-                "hurt":   sheet.anim_surfs("hurt"),
+                "idle":   sheet.anim_surfs("idle", entity_name='bytebuddy'),
+                "run":    sheet.anim_surfs("run", entity_name='bytebuddy'),
+                "jump":   sheet.anim_surfs("jump", entity_name='bytebuddy'),
+                "fall":   sheet.anim_surfs("fall", entity_name='bytebuddy'),
+                "attack": sheet.anim_surfs("attack", entity_name='bytebuddy'),
+                "hurt":   sheet.anim_surfs("hurt", entity_name='bytebuddy'),
             }
             self.visual = AnimSprite(anims, pos=self.rect.topleft, fps=10)
         else:
@@ -85,10 +87,15 @@ class Player(pygame.sprite.Sprite):
     def apply_gravity(self):
         self.vel.y += GRAVITY
 
+    def _ground_probe(self, solids, epsilon=1):
+        """Return True if there is solid ground immediately below the player."""
+        test_rect = self.rect.move(0, epsilon)
+        return any(test_rect.colliderect(r) for r in solids)
+
     def move_and_collide(self, solids):
-        # Horizontal
+        # ---------- Horizontal ----------
         self.pos.x += self.vel.x
-        self.rect.x = int(self.pos.x)
+        self.rect.x = int(round(self.pos.x))  # (optional) round is a bit friendlier
         hits = [r for r in solids if self.rect.colliderect(r)]
         for r in hits:
             if self.vel.x > 0:
@@ -97,21 +104,28 @@ class Player(pygame.sprite.Sprite):
                 self.rect.left = r.right
             self.pos.x = self.rect.x
 
-        # Vertical
+        # ---------- Vertical ----------
         self.pos.y += self.vel.y
-        self.rect.y = int(self.pos.y)
+        self.rect.y = int(round(self.pos.y))  # (optional) round is a bit friendlier
+
         hits = [r for r in solids if self.rect.colliderect(r)]
-        self.on_ground = False
+        landed = False  # track if we resolved a downward collision this frame
+
         for r in hits:
-            if self.vel.y > 0:
+            if self.vel.y > 0:          # moving down, hit floor
                 self.rect.bottom = r.top
-                self.on_ground = True
                 self.vel.y = 0
-                self.jumps = 0
-            elif self.vel.y < 0:
+                landed = True
+            elif self.vel.y < 0:        # moving up, hit ceiling
                 self.rect.top = r.bottom
                 self.vel.y = 0
             self.pos.y = self.rect.y
+
+        # Decide grounded *after* resolution using a probe:
+        # - grounded if we just landed, OR if there is solid immediately below us.
+        #   The probe prevents 1-frame "air" flicker when we're resting on a tile
+        #   but didn't move enough pixels this frame to overlap it.
+        self.on_ground = landed or self._ground_probe(solids, epsilon=1)
 
         if self.on_ground:
             self.coyote_timer = COYOTE_TIME

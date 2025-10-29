@@ -18,6 +18,7 @@ See Also:
     https://github.com/Erotemic/binary_content
     https://opengameart.org/
     https://kenney.nl/
+    https://www.piskelapp.com/
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ from pathlib import Path
 from math import sin, pi
 
 from PIL import Image, ImageDraw
+from platformer.sheetmeta import SpriteSheetMeta, SpriteSheetMetaBuilder
 
 
 url = 'https://i.imgur.com/auhIpW7.png'
@@ -66,11 +68,6 @@ def _new_canvas(cols: int, rows: int, tile=TILE, padding=PADDING) -> Image.Image
     w = cols * tile + (cols + 1) * padding
     h = rows * tile + (rows + 1) * padding
     return Image.new("RGBA", (w, h), BG)
-
-def _place_rect(row: int, col: int, tile=TILE, padding=PADDING) -> tuple[int, int, int, int]:
-    x = padding + col * (tile + padding)
-    y = padding + row * (tile + padding)
-    return (x, y, x + tile, y + tile)
 
 def _draw_bytebuddy(draw: ImageDraw.ImageDraw, box, phase=0.0, action="idle"):
     x0, y0, x1, y1 = box
@@ -135,30 +132,30 @@ def _draw_bytebuddy(draw: ImageDraw.ImageDraw, box, phase=0.0, action="idle"):
     draw.ellipse([cx - 10, y1 - 8, cx + 10, y1 - 4], fill=C["shadow"])
 
 def _build_character_sheet(tile=TILE, padding=PADDING, cols=COLS, anims=ANIMS):
-    """Return PIL image + metadata (no file I/O)."""
+    """Return PIL image + ``SpriteSheetMeta`` (no file I/O)."""
     total_frames = sum(anims.values())
     rows = (total_frames + cols - 1) // cols
     sheet = _new_canvas(cols=cols, rows=rows, tile=tile, padding=padding)
     draw = ImageDraw.Draw(sheet)
 
-    meta = {"tile": tile, "padding": padding, "cols": cols, "anims": {}, "frames": {}}
+    builder = SpriteSheetMetaBuilder(tile=tile, padding=padding, cols=cols,
+                                     default_entity="bytebuddy")
 
     r = c = 0
-    frame_index = 0
     for anim_name, count in anims.items():
-        meta["anims"][anim_name] = {"start": frame_index, "count": count}
+        boxes = []
         for i in range(count):
-            box = _place_rect(r, c, tile=tile, padding=padding)
+            box = builder.grid_box(r, c)
             phase = i / max(count, 1)
             _draw_bytebuddy(draw, box, phase=phase, action=anim_name)
-            meta["frames"][str(frame_index)] = {"x": box[0], "y": box[1], "w": tile, "h": tile}
-            frame_index += 1
+            boxes.append(box)
             c += 1
             if c >= cols:
                 c = 0
                 r += 1
-
-    return sheet, meta
+        builder.add_animation(anim_name, boxes)
+    builder.set_image_info(size=sheet.size)
+    return sheet, builder.build()
 
 def _build_tileset(tile=TILE, padding=PADDING):
     """Return PIL image (no file I/O)."""
@@ -220,18 +217,14 @@ def _build_tileset(tile=TILE, padding=PADDING):
 
     return img
 
-def _scale_image_and_meta(img: Image.Image, meta: dict | None, scale: int):
+def _scale_image_and_meta(img: Image.Image, meta: SpriteSheetMeta | None, scale: int):
     """Nearest-neighbor scale; update frame coords if meta provided."""
     if scale == 1:
-        return img, meta
+        return img, meta.copy() if meta else None
     w, h = img.size
-    img2 = img.resize((w*scale, h*scale), resample=Image.NEAREST)
+    img2 = img.resize((w * scale, h * scale), resample=Image.NEAREST)
     if meta:
-        meta = json.loads(json.dumps(meta))  # deep copy
-        meta["tile"] = meta["tile"] * scale
-        if "padding" in meta: meta["padding"] = meta["padding"] * scale
-        for f in meta["frames"].values():
-            f["x"] *= scale; f["y"] *= scale; f["w"] *= scale; f["h"] *= scale
+        meta = meta.scaled(scale)
     return img2, meta
 
 # -----------------------------
@@ -275,8 +268,11 @@ def generate_assets(out_dir: str | Path | None = None, *, scale: int = SCALE):
 
     sheet_img.save(sheet_path, "PNG")
     tiles_img.save(tiles_path, "PNG")
-    with open(meta_path, "w") as f:
-        json.dump(meta, f, indent=2)
+    if meta is not None:
+        meta.dump(meta_path)
+    else:  # pragma: no cover - defensive; generator always returns meta
+        with open(meta_path, "w") as f:
+            json.dump({}, f, indent=2)
 
     return {
         "sheet_path": str(sheet_path),
@@ -284,7 +280,7 @@ def generate_assets(out_dir: str | Path | None = None, *, scale: int = SCALE):
         "tiles_path": str(tiles_path),
         "sheet_size": sheet_img.size,
         "tiles_size": tiles_img.size,
-        "meta": meta,
+        "meta": meta.to_mapping() if meta else {},
     }
 
 # -----------------------------
@@ -294,7 +290,7 @@ def generate_assets(out_dir: str | Path | None = None, *, scale: int = SCALE):
 # platformer/assets.py
 import json, os, pygame  # NOQA
 from pathlib import Path  # NOQA
-import ubelt as ub
+import ubelt as ub  # NOQA
 
 
 ASSET_DIR = Path(__file__).parent / "assets"
@@ -302,47 +298,72 @@ ASSET_DIR = ub.Path.appdir("platformer").ensuredir()
 
 
 class SpriteSheet:
-    """Loads a spritesheet + meta (with tile, padding, cols)."""
+    """Loads a spritesheet + meta."""
+
     def __init__(self, image_path, meta_path):
         self.image = pygame.image.load(image_path).convert_alpha()
-        with open(meta_path, "r") as f:
-            self.meta = json.load(f)
-        self.tile   = self.meta["tile"]
-        self.cols   = self.meta.get("cols", 8)
-        self.pad    = self.meta.get("padding", 2)
-        self.frames = self.meta["frames"]      # index->{x,y,w,h}
-        self.anims  = self.meta["anims"]       # name->{start,count}
+        self.meta = SpriteSheetMeta.load(meta_path)
+        # self.cols = self.meta.cols
+        # self.pad = self.meta.padding
+        # if default_entity is None:
+        try:
+            default_entity = self.meta.default_entity_name()
+        except KeyError:
+            default_entity = None
+        self.default_entity = default_entity
 
     def frame_rect(self, idx):
-        f = self.frames[str(idx)]
-        return pygame.Rect(f["x"], f["y"], f["w"], f["h"])
+        return self.meta.frame_rect(idx)
 
     def frame_surf(self, idx):
         r = self.frame_rect(idx)
         s = pygame.Surface((r.w, r.h), pygame.SRCALPHA)
-        s.blit(self.image, (0,0), r)
+        s.blit(self.image, (0, 0), r)
         return s
 
-    def anim_surfs(self, name):
-        spec = self.anims[name]
-        start, count = spec["start"], spec["count"]
-        return [self.frame_surf(start + i) for i in range(count)]
+    def _representative_box_size(self, entity_name: str | None = None) -> tuple[int, int]:
+        for box in self.meta.boxes:
+            if entity_name is None or box.entity_name == entity_name:
+                rect = box.rect
+                return rect.w, rect.h
+        return (64, 64)
 
-def load_tileset_grid(image_path, tile, pad):
-    """Slices a uniformly padded tileset into a list of Surfaces (row-major)."""
-    img = pygame.image.load(image_path).convert_alpha()
-    w, h = img.get_size()
-    frames = []
-    y = pad
-    while y + tile <= h:
-        x = pad
-        while x + tile <= w:
-            s = pygame.Surface((tile, tile), pygame.SRCALPHA)
-            s.blit(img, (0,0), (x, y, tile, tile))
-            frames.append(s)
-            x += tile + pad
-        y += tile + pad
-    return frames
+    def anim_surfs(self, name, *, entity_name: str | None = None):
+        entity = entity_name or self.default_entity
+        try:
+            boxes = self.meta.animation_boxes(name, entity_name=entity)
+        except KeyError:
+            return self._placeholder_surfaces(entity_name=entity, animation_name=name)
+        return [self._surface_from_rect(box.rect.to_rect()) for box in boxes]
+
+    def _surface_from_rect(self, rect: pygame.Rect) -> pygame.Surface:
+        surf = pygame.Surface((rect.w, rect.h), pygame.SRCALPHA)
+        surf.blit(self.image, (0, 0), rect)
+        return surf
+
+    def _placeholder_surfaces(
+        self,
+        *,
+        entity_name: str | None,
+        animation_name: str,
+    ) -> list[pygame.Surface]:
+        """Return a loud magenta frame when metadata is missing."""
+        import warnings
+
+        size = self._representative_box_size(entity_name)
+        surf = pygame.Surface(size, pygame.SRCALPHA)
+        surf.fill((255, 0, 255))
+        rect = surf.get_rect()
+        pygame.draw.rect(surf, (0, 0, 0), rect, 2)
+        pygame.draw.line(surf, (0, 0, 0), rect.topleft, rect.bottomright, 2)
+        pygame.draw.line(surf, (0, 0, 0), rect.topright, rect.bottomleft, 2)
+
+        label = f"{entity_name or 'entity'}:{animation_name}"
+        warnings.warn(
+            "Missing spritesheet boxes for %s; using placeholder surface instead" % label
+        )
+        return [surf]
+
 
 def get_default_paths():
     paths = {
